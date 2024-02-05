@@ -7,10 +7,20 @@
 
 // Define MAXSIZE
 int MAXSIZE = 20;
-int DEBUG = 0;
+
+// Define ANSI escape codes for color formatting
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_GREEN "\x1b[92m"
+
+#define ANSI_COLOR_RESET "\x1b[0m"
 
 // Define parse_command()
-char **parse_command(const char *command) {
+char **parse_command(char *command) {
+    // Remove the newline character at the end of the command
+    size_t len = strlen(command);
+    if (len > 0 && command[len-1] == '\n') {
+        command[--len] = '\0';
+    }
     // Allocate memory for arguments
     char **args = malloc(sizeof(char*) * MAXSIZE);
     if (!args) {
@@ -19,12 +29,8 @@ char **parse_command(const char *command) {
     }
 
     int index = 0;
-    char *token = strtok((char *)command, " ");
+    char *token = strtok(command, " ");
     while (token != NULL) {
-        // Print token if DEBUG is enabled
-        if (DEBUG == 1) { 
-            printf("%s\n", token); 
-        }
         // Store token in arguments array
         args[index] = strdup(token);
         if (!args[index]) {
@@ -41,35 +47,21 @@ char **parse_command(const char *command) {
     }
     // Terminate arguments array with NULL
     args[index] = NULL;
+    
+
+    
     return args;
+
+
 }
+
 
 //Define execute_command()
 void execute_command(char** args){
-    char* __path;
-
-    if(args[0][0] == '/'){
-        //__path is absolute
-        __path = args[0]; //use the first argument as the path
-        printf("0\n");
-    }
-    else{
-        //__path is relative
-        __path = malloc(strlen("/bin/") + strlen(args[0]) + 1); //allocate memory for the path
-        strcpy(__path, "/bin/"); //copy "/bin/" to the path
-        strcat(__path, args[0]); //append the first argument to the path
-        printf("%s\n", __path);
-    }
-    
     //execute the command using execv
-    if(execvp(__path, args) == -1){
+    if(execvp(args[0], args) == -1){
         //handle error
         perror("execv");
-    }
-
-    //free memory if allocated
-    if(args[0][0] != '/'){
-        free(__path);
     }
 }
 
@@ -77,8 +69,15 @@ void execute_command(char** args){
 
 // Define shell_loop()
 int shell_loop() {
-    printf("$:");
     while(1) {
+        // Print current directory
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf(ANSI_COLOR_GREEN "Basic_shell: " ANSI_COLOR_BLUE "%s" ANSI_COLOR_RESET "$: ", cwd);
+        } else {
+            perror("getcwd() error");
+            return 1;  // Exit loop on error
+        }
         // Print shell prompt and read input
         char *command = NULL;
         size_t size = 0;
@@ -89,13 +88,10 @@ int shell_loop() {
             free(command);
             return 0; 
         }
-
         // Parse command into arguments
         char **args;
         args = parse_command(command);
         free(command); // Free the memory
-        
-
         // Creating a child process and executing command
         int rc = fork();
         if (rc < 0){
@@ -103,23 +99,17 @@ int shell_loop() {
             fprintf(stderr, "fork failed\n");
             exit(1);
         } else if (rc == 0){
-            // Code for child process
-            if (DEBUG == 1) {
-                printf("Pid:%d Type: Child\n", (int) getpid());
-            }
             // Execute the command using exec()
             // Binaries are located at '/usr/bin/' directory.
             execute_command(args);
+
+            printf("execute_command() did not work \n");
             //return to the parent process
             return 0;
         } else {
             // Code for parent process
-            printf("$:");
             //Wait for the child process to end
             int wc = wait(NULL);
-            if (DEBUG == 1) { 
-                printf("Pid:%d Type: Shell: ", (int) getpid()); 
-            }
         }
         free(args);
     }
@@ -131,3 +121,6 @@ int main(int argc, char *argv[]) {
     shell_loop();
     return 0;
 }
+
+
+
