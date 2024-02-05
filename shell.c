@@ -44,6 +44,37 @@ char **parse_command(const char *command) {
     return args;
 }
 
+//Define execute_command()
+void execute_command(char** args){
+    char* __path;
+
+    if(args[0][0] == '/'){
+        //__path is absolute
+        __path = args[0]; //use the first argument as the path
+        printf("0\n");
+    }
+    else{
+        //__path is relative
+        __path = malloc(strlen("/bin/") + strlen(args[0]) + 1); //allocate memory for the path
+        strcpy(__path, "/bin/"); //copy "/bin/" to the path
+        strcat(__path, args[0]); //append the first argument to the path
+        printf("%s\n", __path);
+    }
+    
+    //execute the command using execv
+    if(execvp(__path, args) == -1){
+        //handle error
+        perror("execv");
+    }
+
+    //free memory if allocated
+    if(args[0][0] != '/'){
+        free(__path);
+    }
+}
+
+
+
 // Define shell_loop()
 int shell_loop() {
     printf("$:");
@@ -63,7 +94,7 @@ int shell_loop() {
         char **args;
         args = parse_command(command);
         free(command); // Free the memory
-        free(args);
+        
 
         // Creating a child process and executing command
         int rc = fork();
@@ -77,14 +108,20 @@ int shell_loop() {
                 printf("Pid:%d Type: Child\n", (int) getpid());
             }
             // Execute the command using exec()
+            // Binaries are located at '/usr/bin/' directory.
+            execute_command(args);
+            //return to the parent process
+            return 0;
         } else {
             // Code for parent process
             printf("$:");
-            //int wc = wait(NULL);
+            //Wait for the child process to end
+            int wc = wait(NULL);
             if (DEBUG == 1) { 
-                printf("Pid:%d Type: Shell\n", (int) getpid()); 
+                printf("Pid:%d Type: Shell: ", (int) getpid()); 
             }
         }
+        free(args);
     }
 }
 
